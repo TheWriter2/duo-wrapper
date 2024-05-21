@@ -1,5 +1,7 @@
+#https://www.duolingo.com/2017-06-30/login
 import requests
 import json
+from menu import Menu
 
 class DuoAPI:
     def __init__(self):
@@ -8,26 +10,6 @@ class DuoAPI:
         self.password = ""
         self.jwt_token = ""
         self.user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        self.login()
-
-    def login(self):
-        self.username = input("Type your username:")
-        self.password = input("Type your password:")
-        self.jwt_token = input("Type your JWT Token (https://github.com/KartikTalwar/Duolingo/issues/128):")
-        
-        print("Authenticating...")
-
-        resp = requests.get("https://www.duolingo.com/login", {"login":self.username, "password":self.password}, headers={
-            "User-Agent":self.user_agent
-        })
-
-        print("Obtained response, status code " + str(resp.status_code) + " - " + resp.reason)
-        
-        if resp.status_code == 200:
-            print("Logged in successfully.\n")
-            return
-
-        exit("Error: failed to login")
 
     def get_version_info(self):
         url = "version_info"
@@ -37,69 +19,72 @@ class DuoAPI:
         })
 
         print("Response obtained:")
-        print("Code: " + str(resp.status_code) + " - " + resp.reason)
+        print("Code: " + str(resp.status_code) + " - " + resp.reason + "\n")
         print("Content:")
-        print(resp.text)
-        print()
-    
-    def get_user_data(self):
-        url = "users/show?username=" + self.username
-        print("Requesting from " + self.baseURL + url + "...")
-        resp = requests.get(self.baseURL + url, headers={
-            "User-Agent":self.user_agent,
-            "Cookie":"jwt_token=" + self.jwt_token
+        for i in resp.json().items():
+            print(i)
+
+    def get_public_user(self):
+        url = "https://www.duolingo.com/2017-06-30/users?username="
+        print("Requesting from " + url + self.username + "...")
+        resp = requests.get(url + self.username, headers={
+            "User-Agent":self.user_agent
         })
 
         print("Response obtained:")
-        print("Code: " + str(resp.status_code) + " - " + resp.reason)
-        info = resp.json()
+        print("Code: " + str(resp.status_code) + " - " + resp.reason + "\n")
+        print("Content:")
+        resp_json = json.loads(resp.text)
+        #print(resp_json)
+        resp_data = resp_json["users"][0]
 
-        print("Content:\n\n")
-        print("User: " + info["username"])
-        print("Full Name: " + info["fullname"])
-        print("Avatar Link: " + info["avatar"] + "\n\n")
-        print("Current Language: " + info["learning_language_string"])
-        print("Streak: " + str(info["site_streak"]))
-        print("Followers: " + str(info["tracking_properties"]["num_followers"]))
-        print("Following: " + str(info["tracking_properties"]["num_following"]) + "\n\n")
-        print("Languages:")
-        for i in info["languages"]:
-            if i["learning"] == False:
-                continue
+        print("=== INFO ===")
+        print("User: " + resp_data["name"])
+        print("Username: " + resp_data["username"])
+        print("User ID: " + str(resp_data["id"]))
+        print("Description: " + resp_data["bio"])
+        if resp_data["hasPlus"] == False:
+            print("Duolingo Free")
+        else:
+            print("Duolingo Plus")
 
-            if i["current_learning"] == False:
-                print(" - " + i["language_string"])
-            else:
-                print(" - " + i["language_string"] + " (currently learning)")
-    
-    def get_current_lang(self):
-        url = "users/show?username=" + self.username
-        print("Requesting from " + self.baseURL + url + "...")
-        resp = requests.get(self.baseURL + url, headers={
-            "User-Agent":self.user_agent,
-            "Cookie":"jwt_token=" + self.jwt_token
-        })
+        print("\n=== STREAK ===")
+        print("Current Streak: " + str(resp_data["streak"]))
+        print("Start Date (YYYY-MM-DD): " + resp_data["streakData"]["currentStreak"]["startDate"])
 
-        print("Response obtained:")
-        print("Code: " + str(resp.status_code) + " - " + resp.reason)
-        info = resp.json()
-        cur_lang = info["learning_language"]
-
-        print("Content:\n\n")
-        print("Language: " + info["language_data"][cur_lang]["language_string"])
+        print("\n=== COURSES ===")
+        print("Current Course: " + resp_data["courses"]["0"]["title"] + " (" + resp_data["fromLanguage"] + ")")
+        print("Course ID: " + resp_data["currentCourseId"])
+        print("\nAll courses:")
+        for i in resp_data["courses"]:
+            print(" " + i["title"] + " (" + i["fromLanguage"] + ")")
+            print("  ID: " + str(i["id"]))
+            print("  Crowns: " + str(i["crowns"]))
+            print("  XP: " + str(i["xp"]) + "\n")
 
 if __name__ == "__main__":
     run = True
-    print("Duolingo API: messing around")
     base = DuoAPI()
 
+    main_menu = Menu([
+        "Exit",
+        "Version Info (no auth)",
+        "Public User Data (no auth)"
+    ])
+
+    print("Duolingo API: messing around")
+
     while run == True:
-        prompt = input("Type the command:")
-        if (prompt == "exit"):
-            run = False
-        elif(prompt == "get_version_info"):
-            base.get_version_info()
-        elif(prompt == "get_user_data"):
-            base.get_user_data()
-        elif(prompt == "get_current_lang"):
-            base.get_current_lang()
+        main_menu.query()
+        if main_menu.state == 1:
+            if main_menu.select == "1":
+                run = False
+                break
+            elif main_menu.select == "2":
+                base.get_version_info()
+                continue
+            elif main_menu.select == "3":
+                base.username = input("Type the username: ")
+                base.get_public_user()
+                continue
+        print("Error: " + main_menu.reason)
