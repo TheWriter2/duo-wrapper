@@ -1,5 +1,6 @@
 #https://www.duolingo.com/2017-06-30/login
 #https://simg-ssl.duolingo.com
+#https://www.duolingo.com/lesson?id=<lesson_id>
 import requests
 import json
 import datetime
@@ -180,6 +181,45 @@ class DuoAPI:
 
         print("Contents written to /exports")
 
+    def get_user_achievements(self):
+        url = "https://duolingo-achievements-prod.duolingo.com/users/<user_id>/achievements?fromLanguage=<fromLanguage>&learningLanguage=<learningLanguage>"
+        print("Requesting from " + url + "...")
+        resp = requests.get(url, headers={
+            "User-Agent":self.user_agent,
+            "Cookie":"jwt_token=" + self.jwt_token
+        })
+
+        print("Response obtained:")
+        print("Code: " + str(resp.status_code) + " - " + resp.reason + "\n")
+        print("Content:")
+        resp_json = json.loads(resp.text)
+
+        store_stuff = [
+            "=== All Store Items ==="
+        ]
+
+        for i in resp_json["shopItems"]:
+            if "name" in i.keys():
+                store_stuff.append("\n" + i["name"])
+            else:
+                store_stuff.append("\nHidden Item")
+            
+            store_stuff.append("\n ID: " + i["id"])
+            store_stuff.append("\n Type: " + i["type"])
+
+            if "currencyType" in i:
+                store_stuff.append("\n Price: " + i["currencyType"] + " " + str(i["price"]))
+            
+            if "lastUsedDate" in i:
+                store_stuff.append("\n Last Used: " + str(datetime.datetime.fromtimestamp(i["lastUsedDate"])))
+        
+            store_stuff.append("\n")
+        
+        fexp = open(self.export_dir + "store.txt","w")
+        fexp.writelines(store_stuff)
+        fexp.close()
+
+        print("Contents written to /exports")
 
 if __name__ == "__main__":
     run = True
@@ -191,7 +231,9 @@ if __name__ == "__main__":
         "Version Info (no auth)",
         "Public User Data (no auth)",
         "Get User Following (auth)",
-        "Get Store Items (auth)"
+        "Get Store Items (auth)",
+        "Get User Achivements (auth)"
+        # https://duolingo-achievements-prod.duolingo.com/users/<user_id>/achievements?fromLanguage=<fromLanguage>&learningLanguage=<learningLanguage>
     ])
 
     print("Duolingo API: messing around")
@@ -221,5 +263,8 @@ if __name__ == "__main__":
                 continue
             elif main_menu.select == "6":
                 base.get_store_items()
+                continue
+            elif main_menu.select == "7":
+                base.get_user_achievements()
                 continue
         print("Error: " + main_menu.reason)
