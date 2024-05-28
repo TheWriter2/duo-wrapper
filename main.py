@@ -10,78 +10,76 @@ class DuoAPI:
     def __init__(self):
         self.baseURL = "https://www.duolingo.com/api/1/"
         self.export_dir = "export/"
+        self.save_json = False
 
-        self.username = ""
-        self.password = ""
-        self.jwt_token = ""
+        self.admin = ""
+        self.token = ""
         self.user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+        self.saved_users = []
 
         try:
             qjwt = open(self.export_dir + "jwt_token","r")
-            self.jwt_token = qjwt.read()
-            print("Authenticated successfully, if you want to change user, login into a different account on duolingo.com and use the Authenticate option.")
+            self.token = qjwt.read()
+            print("Authenticated successfully, if you want to change user, login into a different account on duolingo.com and use the 'Authenticate' option.")
         except OSError:
-            print("Some options require authentication, please use the Authenticate option in the menu to authenticate.\n")
+            print("Your user token is required in order to use the API, please use the 'Authenticate' option in the menu.\n")
 
-    def get_version_info(self):
-        url = "version_info"
-        print("Requesting from " + self.baseURL + url + "...")
-        resp = requests.get(self.baseURL + url, headers={
-            "User-Agent":self.user_agent
-        })
-
-        print("Response obtained:")
-        print("Code: " + str(resp.status_code) + " - " + resp.reason + "\n")
-        print("Content:")
-        for i in resp.json().items():
-            print(i)
-
-    def get_public_user(self):
+    def get_public_user(self, user=None, get="all"):
         url = "https://www.duolingo.com/2017-06-30/users?username="
-        print("Requesting from " + url + self.username + "...")
-        resp = requests.get(url + self.username, headers={
+
+        if user == None:
+            user = self.admin
+
+        print("Requesting from " + url + user + "...")
+        resp = requests.get(url + user, headers={
             "User-Agent":self.user_agent
         })
 
         print("Response obtained:")
         print("Code: " + str(resp.status_code) + " - " + resp.reason + "\n")
+
+        if resp.status_code != 200:
+            print("ERROR: Request failed.")
+            return
+
         print("Content:")
         resp_json = json.loads(resp.text)
         #print(resp_json)
         resp_data = resp_json["users"][0]
 
-        user_data = [
-            "=== INFO ===",
-            "\nUser: " + resp_data["name"],
-            "\nUsername: " + resp_data["username"],
-            "\nUser ID: " + str(resp_data["id"]),
-            "\nDescription: " + resp_data["bio"],
-            "\n\n=== STREAK ===",
-            "\nCurrent Streak: " + str(resp_data["streak"]),
-            "\nStart Date (YYYY-MM-DD): " + resp_data["streakData"]["currentStreak"]["startDate"],
-            "\n\n=== COURSES ===",
-            "\nCurrent Course: " + resp_data["courses"][0]["title"] + " (" + resp_data["fromLanguage"] + ")",
-            "\nCourse ID: " + resp_data["currentCourseId"],
-            "\n\nAll courses:"
-        ]
+        if get == "all":
+            user_data = [
+                "=== INFO ===",
+                "\nUser: " + resp_data["name"],
+                "\nUsername: " + resp_data["username"],
+                "\nUser ID: " + str(resp_data["id"]),
+                "\nDescription: " + resp_data["bio"],
+                "\n\n=== STREAK ===",
+                "\nCurrent Streak: " + str(resp_data["streak"]),
+                "\nStart Date (YYYY-MM-DD): " + resp_data["streakData"]["currentStreak"]["startDate"],
+                "\n\n=== COURSES ===",
+                "\nCurrent Course: " + resp_data["courses"][0]["title"] + " (" + resp_data["fromLanguage"] + ")",
+                "\nCourse ID: " + resp_data["currentCourseId"],
+                "\n\nAll courses:"
+            ]
 
-        for i in resp_data["courses"]:
-            user_data.append("\n " + i["title"] + " (" + i["fromLanguage"] + ")")
-            user_data.append("\n  ID: " + str(i["id"]))
-            user_data.append("\n  Crowns: " + str(i["crowns"]))
-            user_data.append("\n  XP: " + str(i["xp"]) + "\n")
+            for i in resp_data["courses"]:
+                user_data.append("\n " + i["title"] + " (" + i["fromLanguage"] + ")")
+                user_data.append("\n  ID: " + str(i["id"]))
+                user_data.append("\n  Crowns: " + str(i["crowns"]))
+                user_data.append("\n  XP: " + str(i["xp"]) + "\n")
 
-        if resp_data["hasPlus"] == False:
-            user_data.insert(5, "\nDuolingo Free")
-        else:
-            user_data.append(5, "\nDuolingo Plus")
-
-        fexp = open(self.export_dir + "user_data.txt", "w")
-        fexp.writelines(user_data)
-        fexp.close()
-
-        for i in user_data:
-            print(i, end="")
+            if resp_data["hasPlus"] == False:
+                user_data.insert(5, "\nDuolingo Free")
+            else:
+                user_data.append(5, "\nDuolingo Plus")
+            
+            fexp = open(self.export_dir + "user_data.txt", "w")
+            fexp.writelines(user_data)
+            fexp.close()
+        
+        print("Information saved to file.")
 
     def get_user_following(self):
         url = "https://www.duolingo.com/2017-06-30/friends/users/"
@@ -89,8 +87,8 @@ class DuoAPI:
 
         url_user = "https://www.duolingo.com/2017-06-30/users?username="
 
-        print("Requesting from " + url_user + self.username + "...")
-        resp = requests.get(url_user + self.username, headers={
+        print("Requesting from " + url_user + self.admin + "...")
+        resp = requests.get(url_user + self.admin, headers={
             "User-Agent":self.user_agent,
         })
 
@@ -102,7 +100,7 @@ class DuoAPI:
         print("Requesting from " + url + user_id + url_append + "...")
         resp = requests.get(url + user_id + url_append, headers={
             "User-Agent":self.user_agent,
-            "Cookie":"jwt_token=" + self.jwt_token
+            "Cookie":"jwt_token=" + self.token
         })
 
         print("Content:")
@@ -110,7 +108,7 @@ class DuoAPI:
         resp_json = json.loads(resp.text)
         
         user_follow = [
-            "=== Users following " + self.username + " ==="
+            "=== Users following " + self.admin + " ==="
         ]
         for i in resp_json["following"]["users"]:
             user_follow.append("\n" + i["displayName"])
@@ -146,7 +144,7 @@ class DuoAPI:
         print("Requesting from " + url + "...")
         resp = requests.get(url, headers={
             "User-Agent":self.user_agent,
-            "Cookie":"jwt_token=" + self.jwt_token
+            "Cookie":"jwt_token=" + self.token
         })
 
         print("Response obtained:")
@@ -186,7 +184,7 @@ class DuoAPI:
         print("Requesting from " + url + "...")
         resp = requests.get(url, headers={
             "User-Agent":self.user_agent,
-            "Cookie":"jwt_token=" + self.jwt_token
+            "Cookie":"jwt_token=" + self.token
         })
 
         print("Response obtained:")
@@ -228,12 +226,23 @@ if __name__ == "__main__":
     main_menu = Menu([
         "Exit",
         "Authenticate",
-        "Version Info (no auth)",
-        "Public User Data (no auth)",
-        "Get User Following (auth)",
-        "Get Store Items (auth)",
-        "Get User Achivements (auth)"
+        "Get User Data",
+        "Get User Following",
+        "Get Store Items",
+        "Get User Achivements"
         # https://duolingo-achievements-prod.duolingo.com/users/<user_id>/achievements?fromLanguage=<fromLanguage>&learningLanguage=<learningLanguage>
+    ])
+
+    public_data_menu = Menu([
+        "Back",
+        "Write All to File"
+    ])
+
+    select_user_menu = Menu([
+        "Cancel",
+        "Use Current User",
+        "Use Saved User",
+        "Use Custom User"
     ])
 
     print("Duolingo API: messing around")
@@ -245,26 +254,37 @@ if __name__ == "__main__":
                 run = False
                 break
             elif main_menu.select == "2":
-                base.jwt_token = input("To authenticate, please type your jwt_token cookie (https://github.com/KartikTalwar/Duolingo/issues/128):\n")
+                base.admin = input("Please type your Duolingo username: ")
+                base.token = input("To authenticate, please type your jwt_token cookie (https://github.com/KartikTalwar/Duolingo/issues/128):\n")
                 tf = open(base.export_dir + "jwt_token", "w")
-                tf.write(base.jwt_token)
+                tf.write(base.token)
                 tf.close()
                 continue
             elif main_menu.select == "3":
-                base.get_version_info()
+                select_user_menu.query()
+                if select_user_menu.state == 1 and main_menu.select == "1":
+                    continue
+                
+                public_data_menu.query()
+                if public_data_menu.state == 1:
+                    if public_data_menu.select == "1":
+                        continue
+                    elif public_data_menu.select == "2":
+                        if select_user_menu.select == "2":
+                            base.get_public_user()
+                        elif select_user_menu.select == "3":
+                            print("TBA")
+                            continue
+                        elif select_user_menu.select == "4":
+                            base.get_public_user(input("Enter username: "))
                 continue
             elif main_menu.select == "4":
-                base.username = input("Type the username: ")
-                base.get_public_user()
-                continue
-            elif main_menu.select == "5":
-                base.username = input("Type the username: ")
                 base.get_user_following()
                 continue
-            elif main_menu.select == "6":
+            elif main_menu.select == "5":
                 base.get_store_items()
                 continue
-            elif main_menu.select == "7":
+            elif main_menu.select == "6":
                 base.get_user_achievements()
                 continue
         print("Error: " + main_menu.reason)
