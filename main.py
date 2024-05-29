@@ -1,4 +1,3 @@
-#https://www.duolingo.com/2017-06-30/login
 #https://simg-ssl.duolingo.com
 #https://www.duolingo.com/lesson?id=<lesson_id>
 import requests
@@ -14,14 +13,24 @@ class DuoAPI:
 
         self.admin = ""
         self.token = ""
-        self.user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.3"
 
         self.saved_users = []
+
+        self.base_header = {
+            "User-Agent":self.user_agent,
+            "Cookie":"jwt_token=" + self.token
+        }
 
         try:
             qjwt = open(self.export_dir + "jwt_token","r")
             self.token = qjwt.read()
-            print("Authenticated successfully, if you want to change user, login into a different account on duolingo.com and use the 'Authenticate' option.")
+            qjwt.close()
+
+            qadm = open(self.export_dir + "admin","r")
+            self.admin = qadm.read()
+            qadm.close()
+            print("Authenticated successfully, if you want to change user, login into a different account on duolingo.com and use the 'Authenticate' option.\n")
         except OSError:
             print("Your user token is required in order to use the API, please use the 'Authenticate' option in the menu.\n")
 
@@ -31,10 +40,8 @@ class DuoAPI:
         if user == None:
             user = self.admin
 
-        print("Requesting from " + url + user + "...")
-        resp = requests.get(url + user, headers={
-            "User-Agent":self.user_agent
-        })
+        print("Requesting from " + url + user + " ...")
+        resp = requests.get(url + user, headers=self.base_header)
 
         print("Response obtained:")
         print("Code: " + str(resp.status_code) + " - " + resp.reason + "\n")
@@ -45,7 +52,7 @@ class DuoAPI:
 
         print("Content:")
         resp_json = json.loads(resp.text)
-        #print(resp_json)
+        print(resp_json)
         resp_data = resp_json["users"][0]
 
         if get == "all":
@@ -256,9 +263,15 @@ if __name__ == "__main__":
             elif main_menu.select == "2":
                 base.admin = input("Please type your Duolingo username: ")
                 base.token = input("To authenticate, please type your jwt_token cookie (https://github.com/KartikTalwar/Duolingo/issues/128):\n")
+                
                 tf = open(base.export_dir + "jwt_token", "w")
                 tf.write(base.token)
                 tf.close()
+
+                tf = open(base.export_dir + "admin", "w")
+                tf.write(base.admin)
+                tf.close()
+                
                 continue
             elif main_menu.select == "3":
                 select_user_menu.query()
